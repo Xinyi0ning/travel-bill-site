@@ -1,0 +1,15 @@
+Third-party browser libraries bundled with this local HTML application:
+
+1. SheetJS Community Edition 0.20.3
+   Copyright 2012-present SheetJS LLC and contributors
+   License: Apache License 2.0
+   Source: https://git.sheetjs.com/sheetjs/sheetjs
+
+2. Tesseract.js 7.0.0
+   Copyright Tesseract.js contributors
+   License: Apache License 2.0
+   Source: https://github.com/naptha/tesseract.js
+
+Tesseract.js downloads OCR runtime and language model files from its pinned
+jsDelivr sources when image recognition is first used. Payment images are
+processed in the browser and are not sent to those model hosts.

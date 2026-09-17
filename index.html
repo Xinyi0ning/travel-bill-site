@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="整理旅行账单、确认费用承担方式并生成同行人结算结果。">
+  <title>同行账本 · 旅行账单整理</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232b63d9'/%3E%3Cpath d='M18 24h28v24H18z' fill='white'/%3E%3Cpath d='M25 24v-5c0-3 2-5 5-5h4c3 0 5 2 5 5v5M28 35h8' fill='none' stroke='%232b63d9' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#" data-all-trips aria-label="同行账本首页">
+        <span class="brand-mark" aria-hidden="true">同</span>
+        <span>同行账本</span>
+      </a>
+      <div class="top-actions">
+        <button class="button button-secondary" id="backupButton" type="button">备份</button>
+        <div class="top-actions" id="tripActions">
+          <button class="button button-secondary" id="addBillButton" type="button"><span aria-hidden="true">＋</span> 新增费用</button>
+          <button class="button button-secondary" id="settingsButton" type="button">项目设置</button>
+          <button class="button button-secondary" id="exportButton" type="button">
+            <span aria-hidden="true">⇩</span> 导出 Excel
+          </button>
+          <button class="button button-primary" id="uploadButton" type="button">
+            <span aria-hidden="true">＋</span> 上传账单
+          </button>
+          <input id="fileInput" type="file" accept=".csv,.xlsx,.xls,.png,.jpg,.jpeg,.webp" multiple hidden>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="projectHome" class="page-shell project-home-page" hidden>
+    <section class="project-home-head">
+      <div><p class="eyebrow">旅行项目</p><h1>全部旅行</h1><p>从这里查看当前旅行的整理和结算进度。</p></div>
+      <button class="button button-primary" id="newTripButton" type="button">＋ 新建旅行</button>
+    </section>
+    <section class="project-list" id="projectList" aria-label="旅行项目列表"></section>
+  </main>
+
+  <main id="main" class="page-shell">
+    <section class="trip-heading" aria-labelledby="tripTitle">
+      <div>
+        <a class="back-link" href="#" data-all-trips>‹ 全部旅行</a>
+        <div class="title-row">
+          <h1 id="tripTitle">旅行账单</h1>
+          <span class="status-pill status-active">进行中</span>
+        </div>
+        <p><span id="tripDestination">未设置旅行地</span> <span class="dot">·</span> <span id="tripDates">上传账单后自动整理日期范围</span> <span class="dot">·</span> 同行人：<span id="tripCompanion">小羊</span></p>
+      </div>
+      <p class="save-state" id="saveState" role="status"><span aria-hidden="true">✓</span> 已保存到本机</p>
+    </section>
+
+    <section class="summary-grid" aria-label="旅行费用汇总">
+      <article class="summary-card summary-primary">
+        <div class="summary-label"><span>净支出</span><span class="info-dot" title="已纳入本次旅行的支付减退款">i</span></div>
+        <strong id="netTotal">¥0.00</strong>
+        <p id="netMeta">已纳入 0 笔账单</p>
+      </article>
+      <article class="summary-card">
+        <div class="summary-label"><span>自己承担</span><span class="info-dot" title="已确认账单中最终属于我的消费">i</span></div>
+        <strong id="ownTotal">¥0.00</strong>
+        <p>不含同行人应还部分</p>
+      </article>
+      <article class="summary-card">
+        <div class="summary-label"><span>他人承担</span><span class="info-dot" title="已确认账单中由同行人承担的金额">i</span></div>
+        <strong id="otherTotal">¥0.00</strong>
+        <p>我为同行人支付的部分</p>
+      </article>
+      <article class="summary-card summary-receivable">
+        <div class="summary-label"><span>剩余应收</span><span class="info-dot" title="他人承担减去已经归还的金额">i</span></div>
+        <strong id="receivableTotal">¥0.00</strong>
+        <p id="receivableMeta">小羊已还 ¥0.00</p>
+      </article>
+    </section>
+
+    <aside class="review-banner" id="reviewBanner">
+      <span class="review-icon" aria-hidden="true">!</span>
+      <div><strong id="reviewTitle">有账单需要确认</strong><p id="reviewText">未确认金额不会计入承担汇总。</p></div>
+      <button class="text-button" data-quick="pending" type="button">去处理 <span aria-hidden="true">→</span></button>
+    </aside>
+
+    <section class="workspace">
+      <nav class="tabs" role="tablist" aria-label="旅行工作台">
+        <button role="tab" aria-selected="true" aria-controls="billsPanel" id="billsTab" data-tab="bills">账单明细 <span id="billCountBadge" class="tab-count">0</span></button>
+        <button role="tab" aria-selected="false" aria-controls="settlementPanel" id="settlementTab" data-tab="settlement">结算</button>
+        <button role="tab" aria-selected="false" aria-controls="statsPanel" id="statsTab" data-tab="stats">统计</button>
+        <button role="tab" aria-selected="false" aria-controls="importsPanel" id="importsTab" data-tab="imports">导入记录</button>
+      </nav>
+
+      <div id="billsPanel" class="tab-panel" role="tabpanel" aria-labelledby="billsTab">
+        <div class="filter-row">
+          <label class="search-box">
+            <span aria-hidden="true">⌕</span>
+            <span class="sr-only">搜索账单</span>
+            <input id="searchInput" type="search" placeholder="搜索商家、用途或备注">
+          </label>
+          <label class="select-wrap"><span class="sr-only">分类</span><select id="categoryFilter"><option value="all">全部分类</option></select></label>
+          <label class="select-wrap"><span class="sr-only">状态</span><select id="statusFilter"><option value="all">全部状态</option><option value="confirmed">已确认</option><option value="pending">待核对</option><option value="excluded">已排除</option></select></label>
+          <button class="filter-button" id="moreFilters" type="button">筛选 <span aria-hidden="true">⚙</span></button>
+        </div>
+
+        <div class="quick-filters" aria-label="快捷筛选">
+          <button class="quick-chip active" data-quick="all" type="button">全部 <span id="allCount">0</span></button>
+          <button class="quick-chip" data-quick="pending" type="button">待核对 <span id="pendingCount">0</span></button>
+          <button class="quick-chip" data-quick="unset" type="button">未设置承担 <span id="unsetCount">0</span></button>
+          <button class="quick-chip" data-quick="duplicate" type="button">疑似重复 <span id="duplicateCount">0</span></button>
+          <button class="quick-chip" data-quick="excluded" type="button">已排除 <span id="excludedCount">0</span></button>
+        </div>
+
+        <div class="batch-bar" id="batchBar" hidden>
+          <strong><span id="selectedCount">0</span> 笔已选择</strong>
+          <span class="batch-divider"></span>
+          <button type="button" data-batch="self">设为自己承担</button>
+          <button type="button" data-batch="all-aa">设为全员 AA</button>
+          <button type="button" data-batch="exclude">排除</button>
+          <button class="batch-clear" type="button" data-batch="clear">取消选择</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="bill-table">
+            <colgroup>
+              <col class="col-select"><col class="col-date"><col class="col-description"><col class="col-amount"><col class="col-allocation">
+              <col class="col-category"><col class="col-own"><col class="col-companion"><col class="col-status"><col class="col-action">
+            </colgroup>
+            <thead><tr>
+              <th class="check-cell"><input id="selectAll" type="checkbox" aria-label="选择当前全部账单"></th>
+              <th>日期</th><th>费用说明</th><th class="numeric bill-amount-head">净金额</th><th>承担方式 / 备注</th>
+              <th>分类</th><th class="numeric">我承担</th><th class="numeric">同行人应还</th><th>状态</th><th><span class="sr-only">操作</span></th>
+            </tr></thead>
+            <tbody id="billTableBody"></tbody>
+          </table>
+          <div class="empty-state" id="emptyState" hidden><strong id="emptyTitle">还没有账单</strong><p id="emptyText">上传微信、支付宝账单或支付截图开始整理。</p><button class="button button-primary" data-upload type="button">上传新账单</button></div>
+        </div>
+        <div class="mobile-bill-list" id="mobileBillList"></div>
+        <footer class="table-footer"><span id="resultCount">显示 0 笔</span><span>金额按人民币计算</span></footer>
+      </div>
+
+      <div id="settlementPanel" class="tab-panel" role="tabpanel" aria-labelledby="settlementTab" hidden>
+        <div class="section-heading"><div><p class="eyebrow">同行人结算</p><h2>谁该还多少钱，一眼看清</h2></div><button class="button button-secondary" id="openRepayment" type="button">＋ 登记还款</button></div>
+        <div id="settlementContent"></div>
+      </div>
+
+      <div id="statsPanel" class="tab-panel" role="tabpanel" aria-labelledby="statsTab" hidden>
+        <div class="section-heading"><div><p class="eyebrow">统计</p><h2>本次旅行的钱花在了哪里</h2></div><div class="metric-switch"><button class="active" type="button">净支出</button><button type="button" disabled title="完整版本开放">自己承担</button></div></div>
+        <div class="charts-grid" id="statsContent"></div>
+      </div>
+
+      <div id="importsPanel" class="tab-panel" role="tabpanel" aria-labelledby="importsTab" hidden>
+        <div class="section-heading"><div><p class="eyebrow">原始材料</p><h2>导入记录</h2></div><button class="button button-primary" data-upload type="button">继续上传</button></div>
+        <button class="upload-zone" id="dropZone" type="button" data-upload>
+          <span class="upload-zone-icon" aria-hidden="true">⇧</span>
+          <strong>拖入账单表格或支付截图</strong>
+          <span>支持 XLSX、XLS、CSV、PNG、JPG、WebP</span>
+          <small>表格和图片都在当前浏览器中处理；图片首次识别需要联网下载中文模型。</small>
+        </button>
+        <div class="import-list" id="importList"></div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="customDialog" class="modal">
+    <form id="customForm" method="dialog">
+      <div class="modal-head"><div><p class="eyebrow">自定义分配</p><h2 id="customTitle">分配这笔费用</h2></div><button class="icon-button" value="cancel" aria-label="关闭" type="submit" formnovalidate>×</button></div>
+      <p class="modal-note">本笔净金额 <strong id="customTotal">¥0.00</strong>，所有人承担之和必须与它一致。</p>
+      <div class="allocation-fields allocation-fields-list" id="customAllocationFields"></div>
+      <div class="allocation-progress"><span id="allocatedText">已分配 ¥0.00</span><strong id="remainingText">待分配 ¥0.00</strong></div>
+      <p class="form-error" id="customError" role="alert"></p>
+      <div class="modal-actions"><button class="button button-secondary" value="cancel" type="submit" formnovalidate>取消</button><button class="button button-primary" id="saveCustom" type="button">保存分配</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="selectedAaDialog" class="modal modal-small">
+    <form id="selectedAaForm" method="dialog">
+      <div class="modal-head"><div><p class="eyebrow">指定人 AA</p><h2 id="selectedAaTitle">选择承担人</h2></div><button class="icon-button" value="cancel" aria-label="关闭" type="submit" formnovalidate>×</button></div>
+      <p class="modal-note">本笔净金额 <strong id="selectedAaTotal">¥0.00</strong>，将在勾选人员之间平均分配。</p>
+      <div class="person-choice-list" id="selectedAaPeople"></div>
+      <p class="form-error" id="selectedAaError" role="alert"></p>
+      <div class="modal-actions"><button class="button button-secondary" value="cancel" type="submit" formnovalidate>取消</button><button class="button button-primary" id="saveSelectedAa" type="button">确认分配</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="personDialog" class="modal modal-small">
+    <form id="personForm" method="dialog">
+      <div class="modal-head"><div><p class="eyebrow">替人付</p><h2 id="personTitle">选择承担人</h2></div><button class="icon-button" value="cancel" aria-label="关闭" type="submit" formnovalidate>×</button></div>
+      <p class="modal-note">本笔净金额 <strong id="personTotal">¥0.00</strong>，将全部计入所选同行人。</p>
+      <div class="person-choice-list" id="personChoices"></div>
+      <p class="form-error" id="personError" role="alert"></p>
+      <div class="modal-actions"><button class="button button-secondary" value="cancel" type="submit" formnovalidate>取消</button><button class="button button-primary" id="savePerson" type="button">确认分配</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="repaymentDialog" class="modal modal-small">
+    <form id="repaymentForm" method="dialog">
+      <div class="modal-head"><div><p class="eyebrow">同行人结算</p><h2>登记还款</h2></div><button class="icon-button" value="cancel" aria-label="关闭" type="submit" formnovalidate>×</button></div>
+      <label class="form-field"><span>还款人</span><select id="repaymentPerson" required></select></label>
+      <label class="form-field"><span>还款金额</span><span class="money-input"><span>¥</span><input id="repaymentAmount" type="number" min="0.01" step="0.01" required></span></label>
+      <label class="form-field"><span>还款日期</span><input id="repaymentDate" type="date" required></label>
+      <label class="form-field"><span>备注（可选）</span><input id="repaymentNote" type="text" placeholder="例如：微信转账"></label>
+      <div class="modal-actions"><button class="button button-secondary" value="cancel" type="submit" formnovalidate>取消</button><button class="button button-primary" id="saveRepayment" type="button">确认登记</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog" class="modal settings-modal">
+    <form id="settingsForm" method="dialog">
+      <div class="modal-head"><div><p class="eyebrow">旅行资料</p><h2>项目设置</h2></div><button class="icon-button" value="cancel" aria-label="关闭" type="submit" formnovalidate>×</button></div>
+      <div class="edit-grid">
+        <label class="form-field"><span>旅行名称</span><input id="settingsTripName" type="text" maxlength="60" required></label>
+        <label class="form-field"><span>旅行地</span><input id="settingsDestination" type="text" maxlength="60" placeholder="例如：云南" required></label>
+        <label class="form-field"><span>开始日期</span><input id="settingsStartDate" type="date" required></label>
+        <label class="form-field"><span>结束日期</span><input id="settingsEndDate" type="date" required></label>
+      </div>
+      <div class="settings-people-head"><div><strong>参与人</strong><p>“我”是固定实付人；有账单或还款引用的同行人不能删除。</p></div><button class="button button-secondary" id="addCompanion" type="button">＋ 添加同行人</button></div>
+      <div class="settings-people" id="settingsPeople"></div>
+      <p class="form-error" id="settingsError" role="alert"></p>
+      <div class="modal-actions"><button class="button button-secondary" value="cancel" type="submit" formnovalidate>取消</button><button class="button button-primary" id="saveSettings" type="button">保存设置</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="newTripDialog" class="modal">
+    <form id="newTripForm" method="dialog">
+      <div class="modal-head"><div><p class="eyebrow">新的旅行项目</p><h2>新建旅行</h2></div><button class="icon-button" value="cancel" aria-label="关闭" type="submit" formnovalidate>×</button></div>
+      <div class="edit-grid">
+        <label class="form-field edit-wide"><span>旅行名称</span><input id="newTripName" type="text" maxlength="60" placeholder="例如：青岛周末旅行" required></label>
+        <label class="form-field edit-wide"><span>旅行地</span><input id="newTripDestination" type="text" maxlength="60" placeholder="例如：青岛" required></label>
+        <label class="form-field"><span>开始日期</span><input id="newTripStartDate" type="date" required></label>
+        <label class="form-field"><span>结束日期</span><input id="newTripEndDate" type="date" required></label>
+        <label class="form-field edit-wide"><span>同行人</span><input id="newTripCompanions" type="text" maxlength="200" placeholder="多人可用逗号或顿号分隔，例如：小羊、陈姐" required></label>
+      </div>
+      <p class="form-error" id="newTripError" role="alert"></p>
+      <div class="modal-actions"><button class="button button-secondary" value="cancel" type="submit" formnovalidate>取消</button><button class="button button-primary" id="createTripButton" type="button">创建旅行</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="backupDialog" class="modal modal-small">
+    <form method="dialog">
+      <div class="modal-head"><div><p class="eyebrow">本地数据安全</p><h2>完整备份与恢复</h2></div><button class="icon-button" value="cancel" aria-label="关闭" type="submit" formnovalidate>×</button></div>
+      <p class="modal-note">完整备份包含所有旅行、账单、同行人、备注、分摊、还款和导入记录。建议每次集中整理后导出一份。</p>
+      <div class="backup-actions"><button class="button button-primary" id="exportBackupButton" type="button">⇩ 导出完整备份</button><button class="button button-secondary" id="importBackupButton" type="button">⇧ 从备份恢复</button></div>
+      <input id="backupFileInput" type="file" accept=".json,application/json" hidden>
+      <p class="backup-hint">恢复操作会先显示备份摘要，确认后才会替换当前浏览器中的数据。</p>
+    </form>
+  </dialog>
+
+  <dialog id="restoreBackupDialog" class="modal modal-small">
+    <form method="dialog">
+      <div class="modal-head"><div><p class="eyebrow danger-eyebrow">恢复完整备份</p><h2>替换当前本地数据？</h2></div><button class="icon-button" value="cancel" aria-label="关闭" type="submit" formnovalidate>×</button></div>
+      <p class="modal-note" id="restoreBackupSummary"></p>
+      <p class="import-remove-warning">当前数据会被备份文件中的内容替换。建议先导出一份当前备份。</p>
+      <div class="modal-actions"><button class="button button-secondary" value="cancel" type="submit" formnovalidate>取消</button><button class="button button-danger" id="confirmRestoreBackup" type="button">确认恢复</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="editDialog" class="modal">
+    <form id="editForm" method="dialog">
+      <div class="modal-head"><div><p class="eyebrow" id="editEyebrow">账单核对</p><h2 id="editTitle">编辑费用</h2></div><button class="icon-button" value="cancel" aria-label="关闭" type="submit" formnovalidate>×</button></div>
+      <input id="editBillId" type="hidden">
+      <div class="edit-grid">
+        <label class="form-field edit-wide"><span>费用说明</span><input id="editName" type="text" maxlength="100" required></label>
+        <label class="form-field"><span>交易时间</span><input id="editDate" type="datetime-local" required></label>
+        <label class="form-field"><span>交易对方</span><input id="editMerchant" type="text" maxlength="100"></label>
+        <label class="form-field"><span>金额</span><span class="money-input"><span>¥</span><input id="editAmount" type="number" min="0.01" step="0.01" required></span></label>
+        <label class="form-field"><span>退款金额</span><span class="money-input"><span>¥</span><input id="editRefund" type="number" min="0" step="0.01" value="0"></span></label>
+        <label class="form-field"><span>分类</span><select id="editCategory"><option>交通</option><option>住宿</option><option>餐饮</option><option>门票</option><option>购物</option><option>娱乐</option><option>其他</option></select></label>
+        <label class="form-field"><span>承担方式</span><select id="editAllocation"><option value="unset">待设置</option><option value="self">自己承担</option><option value="all-aa">全员 AA</option><option value="selected-aa" disabled>指定人 AA（在账单行设置）</option><option value="person" disabled>替人付（在账单行设置）</option><option value="custom" disabled>自定义分配（在账单行设置）</option></select></label>
+        <label class="form-field edit-wide"><span>备注</span><textarea id="editNote" rows="3" maxlength="500"></textarea></label>
+      </div>
+      <label class="include-check"><input id="editIncluded" type="checkbox" checked> 纳入本次旅行结算</label>
+      <details class="raw-details" id="rawDetails" hidden><summary>查看原始识别内容</summary><pre id="rawContent"></pre></details>
+      <p class="form-error" id="editError" role="alert"></p>
+      <div class="modal-actions modal-actions-split"><button class="danger-text" id="deleteFromEditor" type="button">删除这笔费用</button><span></span><button class="button button-secondary" value="cancel" type="submit" formnovalidate>取消</button><button class="button button-primary" id="saveEdit" type="button">保存费用</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="deleteDialog" class="modal modal-small">
+    <form method="dialog">
+      <div class="modal-head"><div><p class="eyebrow danger-eyebrow">删除费用</p><h2>确定删除这笔账单？</h2></div><button class="icon-button" value="cancel" aria-label="关闭" type="submit" formnovalidate>×</button></div>
+      <p class="modal-note">删除后汇总和结算会立即更新。你仍可通过页面底部提示撤销。</p>
+      <div class="modal-actions"><button class="button button-secondary" value="cancel" type="submit" formnovalidate>取消</button><button class="button button-danger" id="confirmDelete" value="confirm" type="button">确认删除</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="removeImportDialog" class="modal modal-small">
+    <form method="dialog">
+      <div class="modal-head"><div><p class="eyebrow danger-eyebrow">撤销整次导入</p><h2>删除这个文件导入的费用？</h2></div><button class="icon-button" value="cancel" aria-label="关闭" type="submit" formnovalidate>×</button></div>
+      <p class="import-remove-file" id="removeImportFile"></p>
+      <p class="modal-note" id="removeImportSummary"></p>
+      <p class="import-remove-warning" id="removeImportWarning"></p>
+      <div class="modal-actions"><button class="button button-secondary" value="cancel" type="submit" formnovalidate>取消</button><button class="button button-danger" id="confirmImportRemoval" type="button">删除这批费用</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="importProgressDialog" class="modal modal-small import-progress-modal">
+    <div class="progress-content">
+      <span class="processing-mark" aria-hidden="true"></span>
+      <p class="eyebrow">本地处理</p>
+      <h2 id="progressTitle">正在读取账单</h2>
+      <p id="progressText">准备文件…</p>
+      <progress id="importProgress" max="100" value="2">2%</progress>
+      <p class="privacy-line">文件内容不会上传到本站服务器。</p>
+    </div>
+  </dialog>
+
+  <dialog id="importResultDialog" class="modal">
+    <form method="dialog">
+      <div class="modal-head"><div><p class="eyebrow">导入结果</p><h2 id="resultTitle">账单已整理</h2></div><button class="icon-button" value="close" aria-label="关闭" type="submit">×</button></div>
+      <div class="import-results" id="importResults"></div>
+      <p class="modal-note">新识别的账单均标为“待核对”。请检查费用说明、金额与承担方式后再结算。</p>
+      <div class="modal-actions"><button class="button button-secondary" value="close" type="submit">稍后核对</button><button class="button button-primary" id="reviewImported" value="review" type="submit">核对新账单</button></div>
+    </form>
+  </dialog>
+
+  <button class="detail-start-button" id="detailStartButton" type="button" aria-label="回到账单明细开头"><span aria-hidden="true">↑</span> 明细开头</button>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <script src="vendor/xlsx.full.min.js"></script>
+  <script src="vendor/tesseract.min.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/calculations.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/migration.js"></script>
+  <script src="js/trip-store.js"></script>
+  <script src="js/ocr.js"></script>
+  <script src="js/importer.js"></script>
+  <script src="js/import-history.js"></script>
+  <script src="js/inline-notes.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/allocation-dialogs.js"></script>
+  <script src="js/project-settings.js"></script>
+  <script src="js/exporter.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
